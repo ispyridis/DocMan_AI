@@ -1,0 +1,2368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocMan Ai</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/split.js/dist/split.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <!-- Note: html-to-docx library is optional and may not load reliably from CDN -->
+  <!-- The app will fallback to Word-compatible HTML export if the library fails -->
+  <script src="https://cdn.jsdelivr.net/npm/html-to-docx@1.8.0/dist/html-to-docx.umd.min.js" onerror="console.error('html-to-docx library FAILED to load from CDN (using new CDN)')"></script>
+  <style>
+    :root {
+      /* Light theme (default) */
+      --bg-primary: #f3f4f6;
+      --bg-secondary: #ffffff;
+      --text-primary: #111827;
+      --text-secondary: #4b5563;
+      --border-color: #e5e7eb;
+      --header-bg: #3a435e;
+      --header-text: #a3a2a2;
+      --button-bg: rgba(255,255,255,0.1);
+      --button-text: #ffffff;
+      --highlight-color: #fff3cd;
+      --highlight-border: #ffeeba;
+      --sidebar-bg: #ffffff;
+      --gutter-bg: #f3f4f68f;
+      --placeholder-bg: #f0f8ff;
+      --popup-bg: #e0f2fe;
+      --magic-button-bg: #dbeafe;         /* Light blue for light theme */
+      --magic-button-hover: #bfdbfe;
+      --chat-user-bg: #e9f5ff;            /* Light blue for user messages */
+      --chat-ai-bg: #f0f7f0;              /* Light green for AI messages */      /* Slightly darker blue for hover */
+    }
+
+    /* Dark theme */
+    [data-theme="dark"] {
+      --bg-primary: #262e38;
+      --bg-secondary: #272a30;
+      --text-primary: #f9fafb;
+      --text-secondary: #d1d5db;
+      --border-color: #374151;
+      --header-bg: #282d36;
+      --header-text: #d1d5db;
+      --button-bg: rgba(255,255,255,0.05);
+      --button-text: #e5e7eb;
+      --highlight-color: #4b5563;
+      --highlight-border: #6b7280;
+      --sidebar-bg: #292f38;
+      --gutter-bg: #374151;
+      --placeholder-bg: #374151;
+      --popup-bg: #374151;
+      --magic-button-bg: #1e2124;         /* Dark blue for dark theme */
+      --magic-button-hover: #bfdbfe;  
+      --chat-user-bg: #2d3748;            /* Dark blue for user messages */
+      --chat-ai-bg: #394439;              /* Dark green for AI messages */    /* Slightly darker blue for hover */
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .gutter {
+      background-color: var(--gutter-bg);
+      cursor: col-resize;
+    }
+    .gutter-horizontal {
+      cursor: col-resize;
+    }
+    .gutter-vertical {
+      cursor: row-resize;
+    }
+    /* Added styles for proper panel sizing */
+    #editorContainer, #placeholders {
+      flex-grow: 1;           /* Allow them to grow */
+      flex-shrink: 1;          /* Allow them to shrink */
+      flex-basis: 50%;         /* Initial size (adjust as needed) */
+      min-height: 200px;
+      min-width: 200px;
+      overflow: auto;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    #mainContainer {
+      min-height: 400px;
+      display: flex;
+      width: 100%;
+    }
+    .temp-highlight {
+      animation: flash-highlight 1s;
+    }
+    @keyframes flash-highlight {
+      0% { background-color: yellow; }
+      100% { background-color: transparent; }
+    }
+        /* Add these new styles */
+        .EasyMDEContainer {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-toolbar {
+      flex: 0 0 auto;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .CodeMirror {
+      flex: 1 1 auto;
+      height: calc(100% - 50px) !important;
+      background-color: var(--bg-secondary) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border-color) !important;
+    }
+
+    .CodeMirror-cursor {
+      border-left-color: var(--text-primary) !important;
+    }
+
+    .CodeMirror-scroll {
+      min-height: 100px;
+    }
+    
+    /* Improved highlight effects for editor and preview */
+    .editor-highlight {
+      animation: flash-highlight-editor 2s ease-out;
+      background-color: rgba(255, 243, 205, 0.5);
+    }
+    
+    @keyframes flash-highlight-editor {
+      0% { background-color: rgba(255, 243, 205, 0.9); }
+      50% { background-color: rgba(255, 243, 205, 0.7); }
+      100% { background-color: rgba(255, 243, 205, 0.5); }
+    }
+    
+    .preview-highlight {
+      background-color: var(--highlight-color) !important;
+      transition: background-color 0.5s ease-out;
+      border-radius: 3px;
+      padding: 0 2px;
+      box-shadow: 0 0 0 1px var(--highlight-border) !important;
+      display: inline-block;
+    }
+    
+    .placeholder-target {
+      border-radius: 2px;
+      transition: all 0.2s ease-out;
+    }
+    
+    .placeholder-target:hover {
+      background-color: var(--placeholder-bg);
+      cursor: pointer;
+    }
+
+    /* Styles for completed fields */
+    .field-completed {
+      border-color: #37263b !important; /* Magenta/pink border */
+      background-color: rgba(232, 121, 249, 0.1) !important; /* Light magenta background */
+      transition: all 0.3s ease;
+    }
+    
+    .field-completed-label {
+      color: #453847 !important; /* Magenta text for label */
+      font-weight: 600;
+    }
+    
+    .field-flash {
+      animation: field-flash-animation 1s ease;
+    }
+    
+    @keyframes field-flash-animation {
+      0%, 100% { background-color: rgba(232, 121, 249, 0.1); }
+      50% { background-color: rgba(232, 121, 249, 0.3); }
+    }
+
+
+    .editor-toolbar a.active, 
+    .editor-toolbar a:hover {
+      background-color: var(--button-bg) !important; /* Use your theme variable */
+      border-color: var(--border-color) !important;
+      color: var(--text-primary) !important;
+    }
+
+    /* For side-by-side and preview active states */
+    .editor-toolbar a.active.fa-columns,
+    .editor-toolbar a.active.fa-eye {
+      background-color: var(--magic-button-bg) !important; /* Use a more distinct color */
+      color: var(--text-primary) !important;
+    }
+
+    /* Add a subtle transition for smoother effect */
+    .editor-toolbar a {
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+   
+    /* New styles for improved header */
+    .app-header {
+      background-color: var(--header-bg);
+      color: var(--header-text);
+      height: 60px;
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .app-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Improved button styles */
+    .header-button {
+      background-color: var(--button-bg);
+      color: var(--button-text);
+      border: none;
+      border-radius: 4px;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+    }
+    
+    .header-button:hover {
+      background-color: rgba(255,255,255,0.2);
+    }
+    
+    .header-button-primary {
+      background-color: #4f46e5;
+    }
+    
+    .header-button-primary:hover {
+      background-color: #4338ca;
+    }
+    
+    .header-button-success {
+      background-color: #10b981;
+    }
+    
+    .header-button-success:hover {
+      background-color: #059669;
+    }
+    
+    .header-button-secondary {
+      background-color: #8b5cf6;
+    }
+    
+    .header-button-secondary:hover {
+      background-color: #7c3aed;
+    }
+
+    /* Theme toggle switch styles */
+    .theme-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+      margin-right: 10px;
+    }
+
+    .theme-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #374151;
+      transition: .4s;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: rgb(221, 216, 216);
+      transition: .4s;
+      border-radius: 50%;
+      z-index: 2;
+    }
+
+    input:checked + .slider {
+      background-color: #6b7280;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(30px);
+    }
+
+    .slider .sun-icon,
+    .slider .moon-icon {
+      color: white;
+      font-size: 14px;
+      z-index: 1;
+    }
+
+    /* Editor preview styles */
+    .editor-preview, .editor-preview-side {
+      background-color: var(--bg-secondary) !important;
+      color: var(--text-primary) !important;
+    }
+
+    .editor-preview h1 {
+      font-size: 2em;
+      font-weight: bold;
+      margin-top: 1em;
+    }
+    .editor-preview h2 {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin-top: 0.8em;
+    }
+    .editor-preview h3 {
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-top: 0.6em;
+    }
+    .editor-preview h4 {
+      font-size: 1em;
+      font-weight: bold;
+      margin-top: 0.4em;
+    }
+    .editor-preview h5 {
+      font-size: 0.8em;
+      font-weight: bold;
+    }
+
+
+    /* List styles for EasyMDE preview */
+    .editor-preview ul,
+    .editor-preview-side ul {
+      list-style-type: disc;
+      margin: 1em 0;
+      padding-left: 2em;
+    }
+
+    .editor-preview ol,
+    .editor-preview-side ol {
+      list-style-type: decimal;
+      margin: 1em 0;
+      padding-left: 2em;
+    }
+
+    .editor-preview li,
+    .editor-preview-side li {
+      margin: 0.5em 0;
+      line-height: 1.5;
+    }
+
+    /* Nested list styles */
+    .editor-preview ul ul,
+    .editor-preview-side ul ul {
+      list-style-type: circle;
+      margin: 0.5em 0;
+    }
+
+    .editor-preview ul ul ul,
+    .editor-preview-side ul ul ul {
+      list-style-type: square;
+    }
+
+    .editor-preview ol ol,
+    .editor-preview-side ol ol {
+      list-style-type: lower-alpha;
+      margin: 0.5em 0;
+    }
+
+    .editor-preview ol ol ol,
+    .editor-preview-side ol ol ol {
+      list-style-type: lower-roman;
+    }
+
+    /* Task list styles (checkboxes) */
+    /* .editor-preview input[type="checkbox"],
+    .editor-preview-side input[type="checkbox"] {
+      margin-right: 0.5em;
+    }
+
+    .editor-preview li input[type="checkbox"],
+    .editor-preview-side li input[type="checkbox"] {
+      margin-left: -1.5em;
+      margin-right: 0.5em;
+    } */
+
+
+    /* Sidebar styles */
+    #sidebar {
+      background-color: var(--sidebar-bg);
+      color: var(--text-primary);
+      border-right: 1px solid var(--border-color);
+    }
+
+        .suggestions-popup .grid label {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+    }
+
+    .suggestions-popup .grid label:hover {
+      background-color: var(--button-bg);
+    }
+
+    .suggestions-popup button {
+      background-color: var(--magic-button-bg);
+      color: var(--text-primary);
+    }
+
+    .suggestions-popup button:hover {
+      background-color: var(--magic-button-hover);
+    }
+
+    /* Model select dropdown styling */
+    #modelSelect {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+
+    #modelSelect option {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+
+    /* Input styles */
+    input, textarea {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+
+    .magic-button {
+      background-color: var(--magic-button-bg);
+      color: var(--text-primary);
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+      flex-shrink: 0;
+      transition: background-color 0.2s ease;
+    }
+    
+    .magic-button:hover {
+      background-color: var(--magic-button-hover);
+    }
+    
+    .magic-button svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    /* Popup styles */
+    .suggestions-popup {
+      background-color: var(--popup-bg) !important;
+      color: var(--text-primary) !important;
+    }
+
+/* Chat interface styles */
+#chatInterface {
+
+
+  
+
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+#chatMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 200px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.chat-message {
+  padding: 12px 16px;
+  border-radius: 12px;
+  max-width: 85%;
+  word-break: break-word;
+  position: relative;
+  line-height: 1.5;
+}
+
+.user-message {
+  align-self: flex-end;
+  background-color: var(--chat-user-bg);
+  border-bottom-right-radius: 4px;
+  color: var(--text-primary);
+  margin-left: 15%;
+}
+
+.ai-message {
+  align-self: flex-start;
+  background-color: var(--chat-ai-bg);
+  border-bottom-left-radius: 4px;
+  color: var(--text-primary);
+  margin-right: 15%;
+}
+
+.chat-message::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.user-message::before {
+  right: -6px;
+  border-bottom-left-radius: 12px;
+  box-shadow: -6px 0 0 0 var(--chat-user-bg);
+}
+
+.ai-message::before {
+  left: -6px;
+  border-bottom-right-radius: 12px;
+  box-shadow: 6px 0 0 0 var(--chat-ai-bg);
+}
+
+.chat-timestamp {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  text-align: right;
+}
+
+.chat-typing {
+  align-self: flex-start;
+  padding: 8px 12px;
+  font-style: italic;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.chat-typing::after {
+  content: '...';
+  animation: typing-dots 1.5s infinite;
+  width: 20px;
+  display: inline-block;
+  text-align: left;
+}
+
+@keyframes typing-dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+/* Add sender labels */
+.chat-message::after {
+  content: attr(data-sender);
+  position: absolute;
+  top: -18px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.user-message::after {
+  right: 12px;
+  content: 'You';
+}
+
+.ai-message::after {
+  left: 12px;
+  content: 'DocMan AI';
+}
+
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="flex flex-col h-screen">
+<div class="app-header">
+  <div class="app-title mr-auto">DocMan AI</div>
+  <div class="flex items-center space-x-3">
+    <label class="theme-switch">
+      <input type="checkbox" id="themeToggle">
+      <span class="slider">
+        <span class="sun-icon">☀️</span>
+        <span class="moon-icon">🌙</span>
+      </span>
+    </label>
+    <button id="chatToggleBtn" class="header-button header-button-secondary">
+      <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Chat
+    </button>
+    <button id="splitToggleBtn" class="header-button">Toggle Vertical/Horizontal</button>
+    <button id="orientationToggleBtn" class="header-button header-button-primary">Toggle Orientation</button>
+    <button id="exportMdBtn" class="header-button header-button-success">Export MD</button>
+    <button id="exportHtmlBtn" class="header-button header-button-secondary">Export HTML</button>
+    <button id="printPdfBtn" class="header-button header-button-primary">Print PDF</button>
+    <button id="exportDocxBtn" class="header-button">Export DOCX</button>
+  </div>
+</div>
+
+    <div class="flex flex-1 overflow-hidden">
+      <div id="sidebar" class="bg-white shadow p-4 overflow-y-auto flex flex-col transition-all duration-300 ease-in-out" style="width: 25%;">
+        <div id="dropArea" class="border-4 border-dashed border-gray-300 rounded p-4 text-center mb-4">
+          <p class="text-gray-600">Drag & Drop Markdown Files Here</p>
+        </div>
+        
+        <div class="mb-4">
+          <h2 class="text-xl font-bold mb-4">Markdown Files</h2>
+          <ul id="fileList" class="space-y-2"></ul>
+        </div>
+
+        <div class="mb-4">
+          <h2 class="text-xl font-bold mb-2">Case Description</h2>
+          <textarea id="caseDescription" class="w-full h-32 border rounded p-2" placeholder="Enter case description..."></textarea>
+        </div>
+
+        <div id="jsonUpload" class="mb-4 border-4 border-dashed border-gray-300 rounded p-4 text-center cursor-pointer">
+          <p class="text-gray-600">Upload or Drag & Drop JSON File</p>
+        </div>
+        <div id="jsonViewer" class="mb-4 max-h-32 overflow-auto text-sm"></div>
+
+        <div class="mt-auto space-y-2">
+          <button id="listModelsBtn" class="w-full bg-blue-500 text-white px-3 py-1 rounded">Load Gemini Models</button>
+          <select id="modelSelect" class="w-full border rounded px-2 py-1" disabled>
+            <option value="">First load the models...</option>
+          </select>
+          <input id="apiKey" type="password" placeholder="Enter Gemini API Key" class="w-full border rounded px-2 py-1" />
+        </div>
+      </div>
+      
+      <div id="sidebarToggle" class="bg-gray-200 hover:bg-gray-300 cursor-pointer flex items-center justify-center transition-all duration-300 ease-in-out" style="width: 20px;">
+        <div class="transform rotate-90 whitespace-nowrap text-gray-600 font-medium text-sm">Toggle Sidebar</div>
+      </div>
+
+      <div id="mainContainer" class="flex-1 flex overflow-hidden">
+        <div id="editorContainer" class="flex-1 overflow-auto">
+          <textarea id="editor"></textarea>
+        </div>
+        <div id="placeholders" class="flex-1 bg-white p-4 overflow-auto">
+          <h3 class="font-bold mb-2">Fill Placeholder Fields</h3>
+          <div id="placeholderFields"></div>
+        </div>
+        <div id="chatInterface" class="flex-1 bg-white p-4 overflow-auto flex flex-col hidden">
+            <h3 class="font-bold mb-2">DocMan AI Chat</h3>
+            <div id="chatMessages" class="flex-1 overflow-y-auto mb-4 border rounded p-2 bg-gray-50"></div>
+            <div class="flex flex-col">
+                <div class="flex items-center mb-2 text-sm">
+                    <label class="inline-flex items-center mr-4">
+                        <input type="checkbox" id="includeDocumentCheck" class="mr-1" checked>
+                        Include Document Content
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="includeJsonCheck" class="mr-1">
+                        Include JSON Data
+                    </label>
+                </div>
+                <div class="flex">
+                    <input id="chatInput" type="text" placeholder="Ask about your document..." class="flex-1 p-2 border rounded-l focus:outline-none focus:border-blue-500">
+                    <button id="sendChatBtn" class="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileList = document.getElementById('fileList');
+    const dropArea = document.getElementById('dropArea');
+    const editorArea = document.getElementById('editor');
+    const splitToggleBtn = document.getElementById('splitToggleBtn');
+    const orientationToggleBtn = document.getElementById('orientationToggleBtn');
+    const exportMdBtn = document.getElementById('exportMdBtn');
+    const exportHtmlBtn = document.getElementById('exportHtmlBtn');
+    const printPdfBtn = document.getElementById('printPdfBtn');
+    const exportDocxBtn = document.getElementById('exportDocxBtn');
+    const placeholdersDiv = document.getElementById('placeholders');
+    const placeholderFields = document.getElementById('placeholderFields');
+    const mainContainer = document.getElementById('mainContainer');
+    const caseDescription = document.getElementById('caseDescription');
+    const jsonUpload = document.getElementById('jsonUpload');
+    const jsonViewer = document.getElementById('jsonViewer');
+    const chatToggleBtn = document.getElementById('chatToggleBtn');
+    const chatInterface = document.getElementById('chatInterface');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendChatBtn = document.getElementById('sendChatBtn');
+    let caseData = null;
+    let caseDescriptionText = '';
+    let currentPreviewHighlight = null; // Track highlighted element in preview
+    let isChatVisible = false;
+
+  // Theme handling
+    function initTheme() {
+        // Check for saved theme preference or use system preference
+        const savedTheme = localStorage.getItem('theme') || 
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        
+        // Apply the theme
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        // Update toggle state
+        themeToggle.checked = savedTheme === 'dark';
+      }
+
+      // Initialize theme on page load
+      initTheme();
+
+      // Handle theme toggle
+      themeToggle.addEventListener('change', function() {
+        const newTheme = this.checked ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        
+        // Refresh the editor to apply theme changes
+        if (easyMDE) {
+          easyMDE.codemirror.refresh();
+        }
+      });
+
+  // Add chat toggle functionality
+  chatToggleBtn.addEventListener('click', () => {
+    isChatVisible = !isChatVisible;
+    
+    if (isChatVisible) {
+      placeholdersDiv.classList.add('hidden');
+      chatInterface.classList.remove('hidden');
+      chatToggleBtn.classList.add('active');
+    } else {
+      placeholdersDiv.classList.remove('hidden');
+      chatInterface.classList.add('hidden');
+      chatToggleBtn.classList.remove('active');
+    }
+    
+    // Force Split.js to update
+    window.dispatchEvent(new Event('resize'));
+
+    // Recreate the split instance to handle the view change properly
+    setTimeout(() => {
+      createSplit();
+    }, 50);
+  });
+
+        // Handle chat input submission
+    function sendChatMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        // Add user message to chat
+        addChatMessage(message, 'user');
+        chatInput.value = '';
+        
+        // Show typing indicator
+        const typingIndicator = document.createElement('div');
+        typingIndicator.className = 'chat-typing';
+        typingIndicator.textContent = 'DocMan AI is typing';
+        chatMessages.appendChild(typingIndicator);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Process with AI (using the same Gemini API)
+        processWithAI(message)
+        .then(response => {
+        // Remove typing indicator
+        chatMessages.removeChild(typingIndicator);
+        // Add AI response
+        addChatMessage(response, 'ai');
+        })
+        .catch(error => {
+        // Remove typing indicator
+        chatMessages.removeChild(typingIndicator);
+        // Add error message
+        addChatMessage("Sorry, I encountered an error: " + error.message, 'ai');
+        });
+    }
+
+    // Add a message to the chat interface
+    function addChatMessage(message, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${sender}-message`;
+        
+        // Convert markdown to HTML if it's an AI message
+        if (sender === 'ai') {
+            messageDiv.innerHTML = DOMPurify.sanitize(marked.parse(message));
+            
+            // Add syntax highlighting for code blocks
+            messageDiv.querySelectorAll('pre code').forEach(block => {
+            if (window.hljs) {
+                window.hljs.highlightElement(block);
+            }
+            });
+            
+            // Make links open in new tab
+            messageDiv.querySelectorAll('a').forEach(link => {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+            });
+        } else {
+            // For user messages, preserve line breaks but don't parse markdown
+            messageDiv.textContent = message;
+        }
+        
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.className = 'chat-timestamp';
+        timestamp.textContent = new Date().toLocaleTimeString();
+        messageDiv.appendChild(timestamp);
+        
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Add a subtle entrance animation
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(10px)';
+        messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        
+        // Trigger animation after a small delay
+        setTimeout(() => {
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        }, 10);
+    }
+    // Handle Enter key press in chat input
+
+  // Process message with AI
+  async function processWithAI(message) {
+  const apiKey = document.getElementById('apiKey').value;
+  const selectedModel = document.getElementById('modelSelect').value;
+  const includeDocument = document.getElementById('includeDocumentCheck').checked;
+  const includeJson = document.getElementById('includeJsonCheck').checked;
+  
+  if (!apiKey) {
+    throw new Error('Please enter your Gemini API key');
+  }
+  
+  if (!selectedModel) {
+    throw new Error('Please select a Gemini model');
+  }
+
+  try {
+    // Build the prompt based on checkbox settings
+    let promptText = `You are DocMan AI, a helpful assistant that helps users with their case's documents.\n\n`;
+    
+    // Conditionally include document content
+    if (includeDocument) {
+      promptText += `Current document content:\n${easyMDE.value()}\n\n`;
+    }
+    
+    // Add case description
+    promptText += `Case description: ${caseDescriptionText}\n\n`;
+    
+    // Conditionally include JSON data
+    if (includeJson && caseData) {
+      promptText += `JSON data:\n${JSON.stringify(caseData, null, 2)}\n\n`;
+    }
+    
+    // Add user question
+    promptText += `User question: ${message}\n\n`;
+    
+    // Add standard instructions
+    promptText += `Please provide a helpful response. 
+    If the user asks about placeholders in the document, you can identify them and suggest values. 
+    If they ask about the document structure or content, provide relevant information. 
+    If they ask about how to handle the case, provide the relevant advice on what documents the user might need to prepare. 
+    If he asks for a template document to be prepared from you, use these rules:
+      1. Use md notation for the document.
+      2. Use bracket placeholders in the format [*description of what the user has to complete*].
+      3. The text inside the brackets must be italicized using asterisks.
+      4. Start and finish a document with a horizontal rule.`;
+    
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1/${selectedModel}:generateContent?key=${apiKey}`,
+      {
+        contents: [{
+          role: "user",
+          parts: [{
+            text: promptText
+          }]
+        }]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+  } catch (err) {
+    console.error('Gemini API Error:', err);
+    throw new Error(err.response?.data?.error?.message || err.message);
+  }
+}
+
+  // Event listeners for chat
+  sendChatBtn.addEventListener('click', sendChatMessage);
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendChatMessage();
+    }
+  });
+
+  // Update case description text when it changes
+  caseDescription.addEventListener('input', () => {
+    caseDescriptionText = caseDescription.value;
+  });
+
+
+    // Add sidebar toggle functionality
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    let sidebarVisible = true;
+
+    // Add toggle functionality
+    sidebarToggle.addEventListener('click', () => {
+      sidebarVisible = !sidebarVisible;
+      
+      if (sidebarVisible) {
+        sidebar.style.width = '25%'; // 1/4 of the screen
+        sidebar.style.marginLeft = '0';
+        sidebar.style.opacity = '1';
+        sidebarToggle.querySelector('div').textContent = 'Toggle Sidebar';
+      } else {
+        sidebar.style.width = '0';
+        sidebar.style.marginLeft = '-1rem'; // Hide padding too
+        sidebar.style.opacity = '0';
+        sidebarToggle.querySelector('div').textContent = 'Show Sidebar';
+      }
+    });
+
+    const mdFiles = {};
+    let currentFile = '';
+
+    // Find where the editor is initialized and modify the EasyMDE configuration
+    // Modify the EasyMDE initialization to include change event handling
+    // Modify the EasyMDE initialization to include the refresh button functionality
+    const easyMDE = new EasyMDE({ 
+      sideBySideFullscreen: false,
+      syncSideBySidePreviewScroll: false,
+      autofocus: true,
+      element: editorArea, 
+      spellChecker: false,
+      maxHeight: '740px',
+      renderingConfig: {
+        singleLineBreaks: true,  // ✅ Converts newlines to <br>
+        codeSyntaxHighlighting: true
+      },
+      uploadImage: true,
+      imageUploadEndpoint: null, // Using custom upload function instead
+      imageAccept: 'image/png, image/jpeg, image/gif, image/webp',
+      imageMaxSize: 5242880, // 5MB
+      imageTexts: {
+        sbInit: 'Drag & drop images or paste from clipboard',
+        sbOnDragEnter: 'Drop image to upload',
+        sbOnDrop: 'Uploading #images_names#',
+        sbProgress: 'Uploading #file_name#: #progress#%',
+        sbOnUploaded: 'Uploaded #image_name#',
+      },
+      errorMessages: {
+        noFileGiven: 'Please select an image file',
+        typeNotAllowed: 'Only JPG, PNG, GIF, or WEBP images are allowed',
+        fileTooLarge: 'Image is too large (max 5MB)',
+        importError: 'Failed to upload image'
+      },
+      previewImagesInEditor: true, // Show image previews in editor
+      imagesPreviewHandler: (src) => {
+        // Handle base64 images
+        if (src.startsWith('data:')) return src;
+        // You could add other handlers here if needed
+        return src;
+      },
+      insertTexts: {
+        horizontalRule: ["", "\n\n---\n\n"], // Nicer horizontal rule formatting
+        image: ["![](", ")"], // Default is fine but you could customize
+        link: ["[", "](https://)"], // Default is fine
+        table: ["", "\n| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| Text     | Text     | Text     |\n"] // Better table template
+      },
+      imageUploadFunction: async (file) => {
+        try {
+          // Convert image to base64
+          const reader = new FileReader();
+          const imagePromise = new Promise((resolve, reject) => {
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(file);
+          });
+          
+          const base64Image = await imagePromise;
+          
+          return {
+            success: true,
+            file: {
+              url: base64Image
+            }
+          };
+        } catch (error) {
+          console.error('Image upload failed:', error);
+          return {
+            error: 'Image upload failed'
+          };
+        }
+      },
+
+      previewRender: function(plainText) {
+         let textToProcess = plainText || '';
+
+         // 1. RENDER KATEX FIRST to protect it from the Markdown parser.
+         // This is the crucial change. By processing math before Markdown,
+         // the '&' and other special characters are handled correctly by KaTeX.
+         try {
+           // Process block math $$...$$
+           textToProcess = textToProcess.replace(/\$\$([\s\S]+?)\$\$/g, (match, math) => {
+             return katex.renderToString(math, { displayMode: true, throwOnError: false });
+           });
+           // Process inline math $...$
+           textToProcess = textToProcess.replace(/\$([^$]+?)\$/g, (match, math) => {
+             return katex.renderToString(math, { displayMode: false, throwOnError: false });
+           });
+         } catch(e) {
+             console.error("KaTeX rendering error:", e);
+         }
+
+         // 2. Wrap placeholders in spans (this logic is unchanged)
+         const placeholderRegex = /\[\*([^\*\]]+?)\*\]/g;
+         const placeholderCounts = {};
+         textToProcess = textToProcess.replace(placeholderRegex, (match, pName) => {
+             placeholderCounts[match] = (placeholderCounts[match] || 0) + 1;
+             const index = placeholderCounts[match] - 1;
+             return `<span class="placeholder-target" data-placeholder="${match}" data-occurrence-index="${index}">${match}</span>`;
+         });
+         
+         // 3. NOW, render the remaining text with the Markdown parser
+         let html = marked.parse(textToProcess);
+        
+         // 4. Process Mermaid diagrams (this logic is unchanged and works correctly here)
+         html = html.replace(/<pre><code class="language-mermaid">(.*?)<\/code><\/pre>/gs, (match, diagram) => {
+           const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
+           const decodedDiagram = diagram.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+           return `<div class="mermaid" id="${id}">${decodedDiagram}</div>`;
+         });
+        
+         // 5. Sanitize the final HTML. We need to allow KaTeX tags and styles.
+         const sanitizedHtml = DOMPurify.sanitize(html, {
+           ADD_TAGS: ['span', 'div', 'svg', 'path', 'g', 'use', 'defs', 'clipPath', 'rect'],
+           ADD_ATTR: [
+               'data-placeholder', 'data-occurrence-index', 'class', 'id', 'xmlns', 
+               'width', 'height', 'viewBox', 'stroke', 'd', 'transform', 'style', 
+               'aria-hidden', 'role', 'focusable', 'data-lexical-text', 'mathcolor',
+               'mathbackground', 'x', 'y', 'dx', 'dy', 'font-size', 'font-family',
+               'font-weight', 'font-style', 'text-anchor', 'fill', 'stroke-width'
+           ],
+           ADD_STYLES: [
+               'top', 'left', 'width', 'height', 'margin', 'margin-left', 'margin-right', 
+               'vertical-align', 'border-bottom', 'min-width', 'color', 'position',
+               'font-size', 'font-family', 'font-weight', 'font-style', 'display',
+               'text-align', 'padding', 'border', 'background-color'
+           ]
+         });
+
+         // 6. Trigger Mermaid rendering (this is from our previous fix and is still needed)
+         setTimeout(() => {
+             try {
+                 mermaid.run();
+             } catch (e) {
+                 console.error("Mermaid rendering error:", e);
+             }
+         }, 100);
+
+        return sanitizedHtml;
+       },
+
+      toolbar: [
+        'bold', 'italic', 'strikethrough', 'heading', 
+        '|', 'quote', 'horizontal-rule', 'unordered-list', 'ordered-list',
+        '|', 'link', 'image', 'upload-image', 'table', 'code',
+        '|', 'preview', 'side-by-side', 'fullscreen',
+        '|',
+        {
+          name: 'undo',
+          action: (editor) => {
+            editor.codemirror.undo();
+          },
+          className: 'fa fa-undo',
+          title: 'Undo',
+        },
+        {
+          name: 'redo',
+          action: (editor) => {
+            editor.codemirror.redo();
+          },
+          className: 'fa fa-repeat',
+          title: 'Redo',
+        },
+        {
+          name: 'refresh-fields',
+          action: (editor) => {
+            const currentContent = editor.value();
+            // Extract all placeholders from current content
+            const allPlaceholders = currentContent.match(/\[\*([^\*\]]+?)\*\]/g) || [];
+            
+            // Count occurrences of each placeholder
+            const placeholderCounts = new Map();
+            allPlaceholders.forEach(placeholder => {
+              placeholderCounts.set(placeholder, 
+                (placeholderCounts.get(placeholder) || 0) + 1);
+            });
+            
+            // Clear existing fields
+            placeholderFields.innerHTML = '';
+            
+            // Create common fields section (multiple occurrences)
+            const commonSection = document.createElement('div');
+            commonSection.className = 'mb-6';
+            commonSection.innerHTML = `
+              <h3 class="font-bold text-lg mb-3 text-blue-600 border-b pb-2">Common Fields</h3>
+            `;
+            
+            // Create unique fields section
+            const uniqueSection = document.createElement('div');
+            uniqueSection.className = 'mb-6';
+            uniqueSection.innerHTML = `
+              <h3 class="font-bold text-lg mb-3 text-green-600 border-b pb-2">Unique Fields</h3>
+            `;
+            
+            // Organize fields by occurrence count
+            placeholderCounts.forEach((count, placeholder) => {
+              const fieldContainer = createPlaceholderField(placeholder, count, currentContent);
+              if (count > 1) {
+                commonSection.appendChild(fieldContainer);
+              } else {
+                uniqueSection.appendChild(fieldContainer);
+              }
+            });
+            
+            // Add sections if they have fields
+            if (commonSection.children.length > 1) {
+              placeholderFields.appendChild(commonSection);
+            }
+            if (uniqueSection.children.length > 1) {
+              placeholderFields.appendChild(uniqueSection);
+            }
+            
+            // Visual feedback
+            const button = editor.toolbar.find(item => item.name === 'refresh-fields');
+            if (button) {
+              const icon = button.element.querySelector('i');
+              icon.classList.add('fa-spin');
+              setTimeout(() => icon.classList.remove('fa-spin'), 500);
+            }
+          },
+          className: 'fa fa-refresh',
+          title: 'Refresh Fields Panel',
+        },
+        '|', 'help'
+      ],
+      // Add change event handler
+      events: {
+        change: (instance) => {
+          // Store current cursor position
+          const cursor = instance.codemirror.getCursor();
+          // Update placeholders
+          updatePlaceholders(instance.value());
+          // Restore cursor position
+          instance.codemirror.setCursor(cursor);
+        },
+        drop: (instance, event) => {
+          const files = event.dataTransfer.files;
+          if (files.length > 0 && files[0].type.startsWith('image/')) {
+            instance.options.imageUploadFunction(files[0])
+              .then(result => {
+                if (result.success) {
+                  const cursor = instance.codemirror.getCursor();
+                  instance.codemirror.replaceRange(
+                    `\n![${files[0].name}](${result.file.url})\n`,
+                    cursor
+                  );
+                } else if (result.error) {
+                  console.error(result.error);
+                  alert('Failed to upload image: ' + result.error);
+                }
+              })
+              .catch(error => {
+                console.error('Image upload error:', error);
+                alert('Failed to upload image');
+              });
+          }
+        },
+        paste: (instance, event) => {
+          const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+          for (let item of items) {
+            if (item.type.startsWith('image/')) {
+              event.preventDefault();
+              const blob = item.getAsFile();
+              instance.options.imageUploadFunction(blob)
+                .then(result => {
+                  if (result.success) {
+                    const cursor = instance.codemirror.getCursor();
+                    instance.codemirror.replaceRange(
+                      `\n![pasted-image](${result.file.url})\n`,
+                      cursor
+                    );
+                  }
+                });
+              break;
+            }
+          }
+        }
+      }
+    });
+
+    function setupImprovedScrollSync() {
+  const cm = easyMDE.codemirror;
+  let syncInProgress = false;
+  
+  // Function to get the active preview element
+  function getActivePreview() {
+    return easyMDE.isSideBySideActive() 
+      ? document.querySelector('.editor-preview-side') 
+      : document.querySelector('.editor-preview');
+  }
+  
+  // Only sync when switching modes
+  const previewButton = document.querySelector('.editor-toolbar a.fa-eye');
+  const sideBySideButton = document.querySelector('.editor-toolbar a.fa-columns');
+  const editButton = document.querySelector('.editor-toolbar a.fa-edit');
+  
+  if (previewButton) {
+    previewButton.addEventListener('click', () => {
+      // When switching to preview mode, sync preview to current cursor
+      setTimeout(() => {
+        const preview = getActivePreview();
+        if (!preview) return;
+        
+        const cursor = cm.getCursor();
+        const cursorCoords = cm.cursorCoords(true, 'local');
+        const editorScroll = cm.getScrollerElement();
+        const relativePosition = cursorCoords.top / editorScroll.scrollHeight;
+        
+        // Apply to preview with a slight offset to center content
+        const previewScrollTarget = (preview.scrollHeight * relativePosition) - (preview.clientHeight / 3);
+        preview.scrollTop = Math.max(0, previewScrollTarget);
+      }, 50);
+    });
+  }
+  
+  if (editButton || sideBySideButton) {
+    // When switching back to editor, try to position cursor near preview scroll position
+    const handler = () => {
+      setTimeout(() => {
+        const preview = getActivePreview();
+        if (!preview || syncInProgress) return;
+        
+        syncInProgress = true;
+        const relativePosition = preview.scrollTop / preview.scrollHeight;
+        const totalLines = cm.lineCount();
+        const targetLine = Math.floor(relativePosition * totalLines);
+        
+        cm.setCursor(targetLine, 0);
+        cm.focus();
+        
+        // Center the cursor position
+        const cursorCoords = cm.cursorCoords(true, 'local');
+        const editorScroll = cm.getScrollerElement();
+        editorScroll.scrollTop = cursorCoords.top - (editorScroll.clientHeight / 2);
+        
+        setTimeout(() => { syncInProgress = false; }, 100);
+      }, 50);
+    };
+    
+    if (editButton) editButton.addEventListener('click', handler);
+    if (sideBySideButton) sideBySideButton.addEventListener('click', handler);
+  }
+}
+
+// Call this function after EasyMDE is initialized
+setupImprovedScrollSync();
+
+    let splitInstance;
+    let isVertical = true;
+    let isReversed = false;
+
+    function createSplit() {
+      if (splitInstance) splitInstance.destroy();
+      
+      // Fix the direction settings
+      splitInstance = Split(['#editorContainer', '#placeholders'], {
+        sizes: [50, 50],
+        direction: isVertical ? 'horizontal' : 'vertical',
+        gutterSize: 10, // Increased for better visibility
+        minSize: 100,
+        elementStyle: function(dimension, size, gutterSize) {
+          return {
+            'flex-basis': `calc(${size}% - ${gutterSize}px)`,
+          };
+        },
+        gutterStyle: function(dimension, gutterSize) {
+          return {
+            'flex-basis': `${gutterSize}px`,
+          };
+        }
+      });
+      
+      // Update container orientation
+      mainContainer.style.flexDirection = isVertical ? 'row' : 'column';
+    }
+
+    splitToggleBtn.onclick = () => {
+      isVertical = !isVertical;
+      createSplit();
+    };
+
+    orientationToggleBtn.onclick = () => {
+      isReversed = !isReversed;
+      const direction = isVertical ? 'row' : 'column';
+      mainContainer.style.flexDirection = `${direction}${isReversed ? '-reverse' : ''}`;
+    };
+
+    // Initialize split on page load
+    createSplit();
+
+    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('bg-gray-300'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('bg-gray-300'));
+    dropArea.addEventListener('drop', e => {
+      e.preventDefault(); dropArea.classList.remove('bg-gray-300');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.md'));
+      files.forEach(loadFile);
+    });
+
+// 🔹 Inline LLM Context Menu Setup for Editor
+function setupInlineLLMTools() {
+  const cm = easyMDE.codemirror;
+
+  cm.getWrapperElement().addEventListener("contextmenu", async (e) => {
+    e.preventDefault();
+
+    const selection = cm.getSelection();
+    if (!selection.trim()) return;
+
+    // Remove any existing menu
+    document.querySelector("#llmMenu")?.remove();
+
+    const menu = document.createElement("div");
+    menu.id = "llmMenu";
+    menu.className = "absolute z-50 bg-white text-sm border rounded shadow-md";
+    menu.style.top = `${e.clientY}px`;
+    menu.style.left = `${e.clientX}px`;
+
+    const commands = ["Expand", "Rewrite (Formal)", "Rewrite (Casual)", "Fix Grammar", "Custom Command"];
+    for (const cmd of commands) {
+      const item = document.createElement("div");
+      item.textContent = cmd;
+      item.className = "px-4 py-2 cursor-pointer hover:bg-blue-100";
+      item.onclick = async () => {
+        document.body.removeChild(menu);
+        
+        let prompt;
+        
+        if (cmd === "Custom Command") {
+          // Create a popup for custom command input
+          const customCmd = await showCustomCommandPopup(selection);
+          if (!customCmd) return; // User canceled
+          prompt = `${customCmd} the following selected text:\n\n"${selection}". You must respond only the text to replace selected text`;
+        } else {
+          prompt = `${cmd} the following selected text:\n\n"${selection}". You must respond only the text to replace selected text`;
+        }
+
+        const replacement = await processWithAI(prompt);
+        if (replacement) {
+          cm.replaceSelection(replacement);
+        }
+      };
+      menu.appendChild(item);
+    }
+
+    document.body.appendChild(menu);
+
+    // Close on outside click
+    const closeMenu = () => {
+      menu.remove();
+      document.removeEventListener("click", closeMenu);
+    };
+    setTimeout(() => document.addEventListener("click", closeMenu), 10);
+  });
+  
+  // Function to show custom command popup
+  function showCustomCommandPopup(selection) {
+    return new Promise((resolve) => {
+      // Remove any existing popup
+      document.querySelector("#customCommandPopup")?.remove();
+      
+      // Create popup container
+      const popup = document.createElement("div");
+      popup.id = "customCommandPopup";
+      popup.className = "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50";
+      
+      // Create popup content
+      const content = document.createElement("div");
+      content.className = "bg-white rounded-lg p-6 max-w-md w-full";
+      
+      // Create title
+      const title = document.createElement("h3");
+      title.className = "text-lg font-medium mb-4";
+      title.textContent = "Enter Custom Command";
+      
+      // Create input field
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "w-full border rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500";
+      input.placeholder = "e.g., Summarize, Translate to Spanish, etc.";
+      
+      // Create selection preview
+      const preview = document.createElement("div");
+      preview.className = "mb-4 p-2 bg-gray-100 rounded text-sm max-h-32 overflow-auto";
+      preview.textContent = `Selected text: "${selection.length > 100 ? selection.substring(0, 100) + '...' : selection}"`;
+      
+      // Create buttons container
+      const buttons = document.createElement("div");
+      buttons.className = "flex justify-end space-x-2";
+      
+      // Create cancel button
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "px-4 py-2 border rounded text-gray-700 hover:bg-gray-100";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.onclick = () => {
+        document.body.removeChild(popup);
+        resolve(null);
+      };
+      
+      // Create submit button
+      const submitBtn = document.createElement("button");
+      submitBtn.className = "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600";
+      submitBtn.textContent = "Submit";
+      submitBtn.onclick = () => {
+        const command = input.value.trim();
+        if (command) {
+          document.body.removeChild(popup);
+          resolve(command);
+        }
+      };
+      
+      // Add event listener for Enter key
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && input.value.trim()) {
+          document.body.removeChild(popup);
+          resolve(input.value.trim());
+        }
+      });
+      
+      // Assemble the popup
+      buttons.appendChild(cancelBtn);
+      buttons.appendChild(submitBtn);
+      content.appendChild(title);
+      content.appendChild(preview);
+      content.appendChild(input);
+      content.appendChild(buttons);
+      popup.appendChild(content);
+      
+      // Add to document and focus input
+      document.body.appendChild(popup);
+      input.focus();
+      
+      // Close on outside click (optional)
+      popup.addEventListener("click", (e) => {
+        if (e.target === popup) {
+          document.body.removeChild(popup);
+          resolve(null);
+        }
+      });
+    });
+  }
+}
+setupInlineLLMTools();
+
+
+    function loadFile(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        mdFiles[file.name] = e.target.result;
+        addFileToList(file.name);
+        renderMarkdown(file.name);
+      };
+      reader.readAsText(file);
+    }
+
+    function addFileToList(filename) {
+      const li = document.createElement('li');
+      li.className = 'flex items-center cursor-pointer hover:bg-gray-200 rounded p-2';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'mr-2';
+      checkbox.onclick = (e) => {
+        e.stopPropagation(); // Prevent li click event
+        updateMergedContent();
+      };
+      
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = filename;
+      nameSpan.onclick = () => renderMarkdown(filename);
+      
+      li.appendChild(checkbox);
+      li.appendChild(nameSpan);
+      fileList.appendChild(li);
+    }
+
+    function updateMergedContent() {
+      const checkedFiles = Array.from(fileList.querySelectorAll('input[type="checkbox"]'))
+        .filter(cb => cb.checked)
+        .map(cb => cb.nextElementSibling.textContent);
+
+      if (checkedFiles.length === 0) {
+        // If no files are checked, clear the editor
+        easyMDE.value('');
+        updatePlaceholders('');
+        currentFile = '';
+        return;
+      }
+
+      const mergedContent = checkedFiles
+        .map(filename => mdFiles[filename])
+        .join('\n\n---\n\n'); // Add separator between files
+
+      easyMDE.value(mergedContent);
+      updatePlaceholders(mergedContent);
+      currentFile = checkedFiles.join('_') + '.md'; // Update current file name for export
+    }
+
+    function renderMarkdown(filename) {
+      // Uncheck all checkboxes
+      fileList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      
+      // Check the checkbox for the selected file
+      const fileItem = Array.from(fileList.querySelectorAll('span'))
+        .find(span => span.textContent === filename);
+      if (fileItem) {
+        fileItem.previousElementSibling.checked = true;
+      }
+      
+      // Set current file and update editor content
+      currentFile = filename;
+      const mdText = mdFiles[filename];
+      easyMDE.value(mdText);
+      updatePlaceholders(mdText);
+    }
+
+    function updatePlaceholders(mdText) {
+      placeholderFields.innerHTML = '';
+      placeholdersDiv.classList.toggle('hidden', !mdText);
+
+      // Get all checked filenames and their content
+      const checkedFiles = Array.from(fileList.querySelectorAll('input[type="checkbox"]'))
+        .filter(cb => cb.checked)
+        .map(cb => ({
+          name: cb.nextElementSibling.textContent,
+          content: mdFiles[cb.nextElementSibling.textContent]
+        }));
+
+      // Create placeholder maps
+      const placeholderMap = new Map(); // filename -> placeholders
+      const placeholderCounts = new Map(); // placeholder -> count
+
+      // Collect placeholders per file and count occurrences
+      checkedFiles.forEach(file => {
+        const fileMatches = file.content.match(/\[\*([^\*\]]+?)\*\]/g) || [];
+        placeholderMap.set(file.name, new Set(fileMatches));
+        
+        fileMatches.forEach(match => {
+          placeholderCounts.set(match, (placeholderCounts.get(match) || 0) + 1);
+        });
+      });
+
+      // Create common fields section (fields that appear in multiple files)
+      const commonSection = document.createElement('div');
+      commonSection.className = 'mb-6';
+      commonSection.innerHTML = `
+        <h3 class="font-bold text-lg mb-3 text-blue-600 border-b pb-2">Common Fields</h3>
+      `;
+
+      // Create fields that appear in multiple files
+      placeholderCounts.forEach((count, placeholder) => {
+        if (count > 1) {
+          const fieldContainer = createPlaceholderField(placeholder, count, mdText);
+          commonSection.appendChild(fieldContainer);
+        }
+      });
+
+      // Add common section if it has fields
+      if (commonSection.children.length > 1) {
+        placeholderFields.appendChild(commonSection);
+      }
+
+      // Create document-specific sections
+      checkedFiles.forEach(file => {
+        const fileMatches = Array.from(placeholderMap.get(file.name) || []);
+        const uniqueMatches = fileMatches.filter(match => placeholderCounts.get(match) === 1);
+
+        if (uniqueMatches.length > 0) {
+          const fileSection = document.createElement('div');
+          fileSection.className = 'mb-6';
+          fileSection.innerHTML = `
+            <h3 class="font-bold text-lg mb-3 text-green-600 border-b pb-2">Fields for ${file.name}</h3>
+          `;
+
+          uniqueMatches.forEach(placeholder => {
+            const fieldContainer = createPlaceholderField(placeholder, 1, mdText);
+            fileSection.appendChild(fieldContainer);
+          });
+
+          placeholderFields.appendChild(fileSection);
+        }
+      });
+    }
+
+    function createPlaceholderField(placeholder, occurrences, mdText) {
+      const container = document.createElement('div');
+      container.className = 'mb-4 relative flex items-center';
+  
+      const inputWrapper = document.createElement('div');
+      inputWrapper.className = 'flex-1 mr-2';
+  
+      const label = document.createElement('div');
+      label.className = 'text-sm text-gray-600 mb-1 cursor-pointer hover:text-blue-600';
+      label.textContent = `${placeholder.slice(2, -2)}${occurrences > 1 ? ` (${occurrences} occurrences)` : ''}`;
+  
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = placeholder.slice(2, -2);
+      input.className = 'w-full p-2 border rounded focus:border-blue-500 focus:outline-none';
+      input.dataset.placeholder = placeholder;
+
+      // Add navigation buttons for multiple occurrences
+      if (occurrences > 1) {
+        const navButtons = document.createElement('div');
+        navButtons.className = 'flex space-x-2 mt-1';
+        
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '← Prev';
+        prevBtn.className = 'text-sm text-blue-600 hover:text-blue-800';
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next →';
+        nextBtn.className = 'text-sm text-blue-600 hover:text-blue-800';
+        
+        let currentIndex = 0;
+        
+        prevBtn.onclick = () => {
+          currentIndex = (currentIndex - 1 + occurrences) % occurrences;
+          navigateToOccurrence(placeholder, currentIndex);
+        };
+  
+        nextBtn.onclick = () => {
+          currentIndex = (currentIndex + 1) % occurrences;
+          navigateToOccurrence(placeholder, currentIndex);
+        };
+  
+        navButtons.appendChild(prevBtn);
+        navButtons.appendChild(nextBtn);
+        inputWrapper.appendChild(navButtons);
+      }
+
+      // Check if this placeholder exists in the current content
+      const currentContent = easyMDE.value();
+      const placeholderExists = currentContent.includes(placeholder);
+      
+      // If placeholder doesn't exist (already replaced), mark as completed
+      if (!placeholderExists) {
+        input.classList.add('field-completed');
+        label.classList.add('field-completed-label');
+      }
+  
+      input.onchange = () => {
+        // Only proceed if there's actual input value
+        if (input.value.trim()) {
+          const oldContent = easyMDE.value();
+          const newContent = oldContent.replaceAll(placeholder, input.value);
+          
+          // Check if replacement actually happened
+          if (oldContent !== newContent) {
+            // Update editor content
+            easyMDE.value(newContent);
+            
+            // Mark field as completed
+            input.classList.add('field-completed');
+            label.classList.add('field-completed-label');
+            
+            // Add flash animation
+            input.classList.add('field-flash');
+            setTimeout(() => input.classList.remove('field-flash'), 1000);
+            
+            // Log the completion event
+            console.log(`Field completed: ${placeholder} → ${input.value}`);
+            
+            // Dispatch a custom event that can be listened to elsewhere
+            const completionEvent = new CustomEvent('placeholder-completed', {
+              detail: {
+                placeholder: placeholder,
+                value: input.value,
+                occurrences: occurrences
+              },
+              bubbles: true
+            });
+            input.dispatchEvent(completionEvent);
+          }
+        }
+      };
+  
+      // Add click handler to label to navigate to first occurrence
+      label.onclick = () => {
+        navigateToOccurrence(placeholder, 0);
+      };
+  
+      const magicButton = document.createElement('button');
+      magicButton.className = 'magic-button';
+      magicButton.innerHTML = `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>`;
+  
+      magicButton.onclick = async () => {
+        const existingPopup = container.querySelector('.suggestions-popup');
+        if (existingPopup) existingPopup.remove();
+  
+        const popup = await createSuggestionsPopup(placeholder);
+        container.appendChild(popup);
+      };
+  
+      inputWrapper.appendChild(label);
+      inputWrapper.appendChild(input);
+      container.appendChild(inputWrapper);
+      container.appendChild(magicButton);
+      return container;
+    }
+
+    function navigateToOccurrence(placeholder, index) {
+      const cm = easyMDE.codemirror;
+      const isPreview = easyMDE.isPreviewActive();
+      const isSideBySide = easyMDE.isSideBySideActive();
+
+      // --- Force preview re-render if side-by-side mode is active ---
+      if (isSideBySide) {
+        const current = easyMDE.value();
+        easyMDE.value(current + ' ');  // Minimal edit
+        easyMDE.value(current);        // Revert
+      }
+
+      // --- PREVIEW HIGHLIGHT ---
+      if (isPreview || isSideBySide) {
+        requestAnimationFrame(() => {
+          // Choose correct panel
+          const previewPanel = document.querySelector(
+            isSideBySide ? '.editor-preview-side' : '.editor-preview'
+          );
+
+          if (!previewPanel) {
+            console.warn("No preview panel found.");
+            return;
+          }
+
+          const matchingSpans = [...previewPanel.querySelectorAll('.placeholder-target')]
+            .filter(span => span.getAttribute('data-placeholder') === placeholder);
+
+          if (matchingSpans.length > index) {
+            const targetSpan = matchingSpans[index];
+
+            // Remove previous highlight
+            if (currentPreviewHighlight) {
+              currentPreviewHighlight.classList.remove('preview-highlight');
+            }
+
+            // Force reflow before applying class
+            void targetSpan.offsetWidth;
+
+            // Add highlight
+            targetSpan.classList.add('preview-highlight');
+            currentPreviewHighlight = targetSpan;
+
+            // Scroll to visible
+            targetSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Remove highlight later
+            setTimeout(() => {
+              if (targetSpan === currentPreviewHighlight) {
+                targetSpan.classList.remove('preview-highlight');
+                currentPreviewHighlight = null;
+              }
+            }, 3000);
+          } else {
+            console.warn(`No preview span found for "${placeholder}" at index ${index}`);
+          }
+        });
+      }
+
+      // --- EDITOR FOCUS + HIGHLIGHT ---
+      if (!isPreview || isSideBySide) {
+        const content = cm.getValue();
+        const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+        let count = 0;
+        let match;
+
+        while ((match = regex.exec(content)) !== null) {
+          if (count === index) {
+            const startPos = cm.posFromIndex(match.index);
+            const endPos = cm.posFromIndex(match.index + placeholder.length);
+
+            cm.setCursor(startPos);
+
+            const marker = cm.markText(startPos, endPos, {
+              className: 'editor-highlight',
+              clearOnEnter: false
+            });
+
+            setTimeout(() => marker.clear(), 3000);
+
+            cm.focus();
+
+            // Center cursor after short delay
+            setTimeout(() => {
+              const editorScroller = cm.getScrollerElement();
+              const cursorCoords = cm.cursorCoords(true, 'local');
+              const scrollPos = cursorCoords.top - editorScroller.clientHeight / 2;
+              editorScroller.scrollTop = scrollPos;
+            }, 10);
+
+            break;
+          }
+          count++;
+        }
+      }
+    }
+
+    async function createSuggestionsPopup(placeholder) {
+      const popup = document.createElement('div');
+      popup.className = 'suggestions-popup absolute right-0 top-full mt-2 w-96 bg-green-100 rounded-lg shadow-xl z-50 p-4';
+      
+      // Add refresh button at the top
+      const refreshButton = document.createElement('button');
+      refreshButton.className = 'mb-4 bg-blue-500 text-white px-3 py-1 rounded flex items-center';
+      refreshButton.innerHTML = `
+        <svg class="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+        </svg>
+        Refresh Suggestions
+      `;
+      
+      popup.appendChild(refreshButton);
+      popup.innerHTML += '<div class="text-center">Generating suggestions...</div>';
+      
+      // Function to load suggestions
+      const loadSuggestions = async () => {
+        const suggestions = await generateSuggestions(placeholder);
+        
+        // Clear existing content except the refresh button
+        while (popup.children.length > 1) {
+          popup.removeChild(popup.lastChild);
+        }
+      
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.className = 'grid grid-cols-2 gap-2';
+      
+        suggestions.forEach((suggestion, index) => {
+          const label = document.createElement('label');
+          label.className = 'flex items-center bg-red-500 text-white p-2 rounded cursor-pointer';
+          
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'mr-2';
+          checkbox.value = suggestion;
+      
+          const span = document.createElement('span');
+          span.textContent = suggestion;
+      
+          label.appendChild(checkbox);
+          label.appendChild(span);
+          checkboxContainer.appendChild(label);
+        });
+      
+        const applyButton = document.createElement('button');
+        applyButton.className = 'mt-4 bg-blue-500 text-white px-4 py-2 rounded w-full';
+        applyButton.textContent = 'Apply Selected';
+        applyButton.onclick = () => {
+          const selectedSuggestions = Array.from(popup.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(cb => cb.value)
+            .join(' ');
+          
+          if (selectedSuggestions) {
+            const input = popup.parentElement.querySelector('input[type="text"]');
+            input.value = selectedSuggestions;
+            input.dispatchEvent(new Event('change'));
+          }
+          popup.remove();
+        };
+      
+        popup.appendChild(checkboxContainer);
+        popup.appendChild(applyButton);
+      };
+      
+      // Add click handler for refresh button
+      refreshButton.onclick = loadSuggestions;
+      
+      // Initial load of suggestions
+      await loadSuggestions();
+      
+      return popup;
+    }
+
+    async function generateSuggestions(placeholder) {
+      const apiKey = document.getElementById('apiKey').value;
+      const selectedModel = document.getElementById('modelSelect').value;
+      
+      if (!apiKey) {
+        alert('Please enter your Gemini API key');
+        return [];
+      }
+      
+      if (!selectedModel) {
+        alert('Please select a Gemini model');
+        return [];
+      }
+
+      try {
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1/${selectedModel}:generateContent?key=${apiKey}`,
+          {
+            contents: [{
+              role: "user",
+              parts: [{
+                text: `You are a helpful assistant that generates field suggestions for legal or technical documents. When looking at case data, look first in case description if there is something relevant, then compare the keys in first column with field label "${placeholder.slice(2, -2)}" and return only the values in the second column from the most relevant in context keys. Return exactly 6 suggestions, one per line. If you do not find relevant suggestions you can return relevant but imaginary. If you decide to suggest apart from the ones in the case description or the json, please enclose the imaginary suggestions in italic md notation.
+                Current document content: ${easyMDE.value()}
+                Case description: ${caseDescriptionText}
+                Available data: ${JSON.stringify(caseData)}
+                
+                Important: Return exactly 6 suggestions, one per line, without any additional text or formatting.`
+              }]
+            }]
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const suggestions = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        return suggestions.split('\n').filter(s => s.trim()).slice(0, 6);
+      } catch (err) {
+        console.error('Gemini API Error:', err);
+        alert('Error generating suggestions: ' + (err.response?.data?.error?.message || err.message));
+        return [];
+      }
+    }
+
+    // Add this new function to handle model loading
+    async function loadGeminiModels() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const modelSelect = document.getElementById('modelSelect');
+
+      if (!apiKey) {
+        alert('Please enter a Gemini API key');
+        return;
+      }
+
+      try {
+        const result = await axios.get(
+          `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`
+        );
+
+        const models = result.data.models;
+        modelSelect.innerHTML = '<option value="">Select a model...</option>';
+        
+        models.forEach(model => {
+          const option = document.createElement('option');
+          option.value = model.name;
+          option.textContent = `${model.displayName} (${model.name})`;
+          modelSelect.appendChild(option);
+        });
+
+        modelSelect.disabled = false;
+        alert('Models loaded successfully. Please select a model from the dropdown.');
+
+      } catch (err) {
+        alert('Error loading models: ' + (err.response?.data?.error?.message || err.message));
+      }
+    }
+
+    // Add event listener for the load models button
+    document.getElementById('listModelsBtn').addEventListener('click', loadGeminiModels);
+
+    jsonUpload.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = e => handleJsonFile(e.target.files[0]);
+      input.click();
+    });
+
+    jsonUpload.addEventListener('dragover', e => {
+      e.preventDefault();
+      jsonUpload.classList.add('bg-gray-100');
+    });
+
+    jsonUpload.addEventListener('dragleave', () => {
+      jsonUpload.classList.remove('bg-gray-100');
+    });
+
+    jsonUpload.addEventListener('drop', e => {
+      e.preventDefault();
+      jsonUpload.classList.remove('bg-gray-100');
+      const file = e.dataTransfer.files[0];
+      if (file.type === 'application/json') {
+        handleJsonFile(file);
+      }
+    });
+
+    function handleJsonFile(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          caseData = JSON.parse(e.target.result);
+          jsonViewer.innerHTML = `<pre>${JSON.stringify(caseData, null, 2)}</pre>`;
+        } catch (err) {
+          alert('Invalid JSON file');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- HELPER FUNCTION for PDF/DOCX ---
+    function getPreviewContent() {
+        const previewPane = document.querySelector('.editor-preview-side:not([style*="display: none"])') || document.querySelector('.editor-preview');
+        if (!previewPane || !previewPane.innerHTML.trim()) {
+            alert('Could not find preview content. Please open the preview pane first.');
+            return null;
+        }
+        return previewPane.innerHTML;
+    }
+
+    // --- PRINT TO PDF FUNCTION ---
+    function printPreview() {
+        const content = getPreviewContent();
+        if (!content) return;
+
+        const styles = Array.from(document.styleSheets)
+            .map(sheet => {
+                try {
+                    return Array.from(sheet.cssRules).map(rule => rule.cssText).join('');
+                } catch (e) { return ''; }
+            })
+            .join('\n');
+
+        const printWindow = window.open('', '', 'height=800,width=1000');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="en" data-theme="${document.documentElement.getAttribute('data-theme') || 'light'}">
+            <head>
+                <title>Print Preview</title>
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 40px; }
+                    ${styles}
+                    @media print {
+                        body { -webkit-print-color-adjust: exact; }
+                    }
+                    /* Ensure KaTeX elements are properly displayed */
+                    .katex { font-size: 1em; }
+                    .katex-display { margin: 1em 0; text-align: center; }
+                </style>
+            </head>
+            <body>
+                <div class="editor-preview">${content}</div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 500);
+    }
+
+    // --- EXPORT TO DOCX FUNCTION ---
+    async function exportToDocx() {
+        const content = getPreviewContent();
+        if (!content) return;
+
+        // Check if html-to-docx library is available
+        if (typeof htmlToDocx === 'undefined') {
+            // Fallback: Create a simple Word-compatible HTML file
+            const wordCompatibleHtml = `
+                <!DOCTYPE html>
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+                      xmlns:w="urn:schemas-microsoft-com:office:word" 
+                      xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="ProgId" content="Word.Document">
+                    <meta name="Generator" content="DocMan AI">
+                    <meta name="Originator" content="DocMan AI">
+                    <link rel="File-List" href="filelist.xml">
+                    <title>Exported Document</title>
+                    <style>
+                        @page {
+                            size: 8.5in 11in;
+                            margin: 1in;
+                        }
+                        body {
+                            font-family: 'Times New Roman', serif;
+                            font-size: 12pt;
+                            line-height: 1.5;
+                            color: black;
+                            background: white;
+                        }
+                        h1 { font-size: 18pt; font-weight: bold; }
+                        h2 { font-size: 16pt; font-weight: bold; }
+                        h3 { font-size: 14pt; font-weight: bold; }
+                        h4 { font-size: 13pt; font-weight: bold; }
+                        h5 { font-size: 12pt; font-weight: bold; }
+                        p { margin: 6pt 0; }
+                        ul, ol { margin: 6pt 0; padding-left: 36pt; }
+                        li { margin: 3pt 0; }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid black; padding: 6pt; }
+                        blockquote { margin: 6pt 0; padding-left: 36pt; font-style: italic; }
+                        code { font-family: 'Courier New', monospace; background: #f5f5f5; padding: 2pt; }
+                        pre { font-family: 'Courier New', monospace; background: #f5f5f5; padding: 12pt; margin: 6pt 0; }
+                        /* Remove any placeholder highlighting for Word */
+                        .placeholder-target { background: none !important; border: none !important; }
+                    </style>
+                </head>
+                <body>
+                    ${content}
+                </body>
+                </html>
+            `;
+            
+            const blob = new Blob([wordCompatibleHtml], { 
+                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+            });
+            const filename = currentFile ? currentFile.replace('.md', '.doc') : 'export.doc';
+            saveAs(blob, filename);
+            
+            alert('DOCX library not available. Exported as Word-compatible HTML (.doc file) instead.\n\nTo use true DOCX export, you can:\n1. Copy the HTML export content\n2. Paste it into Microsoft Word\n3. Save as .docx format');
+            return;
+        }
+
+        // Try to use html-to-docx library
+        try {
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { 
+                            font-family: 'Times New Roman', serif; 
+                            font-size: 12pt; 
+                            line-height: 1.5; 
+                            color: black; 
+                        }
+                        .placeholder-target { background: none !important; border: none !important; }
+                    </style>
+                </head>
+                <body>${content}</body>
+                </html>
+            `;
+
+            const fileBuffer = await htmlToDocx(htmlContent, null, {
+                table: { row: { cantSplit: true } },
+                footer: true,
+                pageNumber: true,
+                margins: {
+                    top: 1440,    // 1 inch = 1440 twips
+                    right: 1440,
+                    bottom: 1440,
+                    left: 1440
+                }
+            });
+
+            const filename = currentFile ? currentFile.replace('.md', '.docx') : 'export.docx';
+            saveAs(fileBuffer, filename);
+            
+        } catch (error) {
+            console.error('Error exporting to DOCX:', error);
+            
+            // Fallback to Word-compatible HTML if DOCX conversion fails
+            const wordCompatibleHtml = `
+                <!DOCTYPE html>
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+                      xmlns:w="urn:schemas-microsoft-com:office:word" 
+                      xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="ProgId" content="Word.Document">
+                    <meta name="Generator" content="DocMan AI">
+                    <title>Exported Document</title>
+                    <style>
+                        body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
+                        .placeholder-target { background: none !important; border: none !important; }
+                    </style>
+                </head>
+                <body>${content}</body>
+                </html>
+            `;
+            
+            const blob = new Blob([wordCompatibleHtml], { 
+                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+            });
+            const filename = currentFile ? currentFile.replace('.md', '.doc') : 'export.doc';
+            saveAs(blob, filename);
+            
+            alert(`DOCX conversion failed: ${error.message}\n\nExported as Word-compatible HTML (.doc file) instead.\n\nYou can open this file in Microsoft Word and save it as .docx format.`);
+        }
+    }
+
+    exportMdBtn.onclick = () => saveAs(new Blob([easyMDE.value()], {type:'text/markdown'}), currentFile || 'document.md');
+    
+    exportHtmlBtn.onclick = () => {
+      const renderedContent = getPreviewContent();
+      if (!renderedContent) return;
+
+      const styles = Array.from(document.styleSheets)
+        .map(sheet => {
+          try {
+            return Array.from(sheet.cssRules).map(rule => rule.cssText).join('');
+          } catch (e) { return ''; }
+        })
+        .join('\n');
+
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html lang="en" data-theme="${document.documentElement.getAttribute('data-theme') || 'light'}">
+        <head>
+          <meta charset="UTF-8">
+          <title>Exported Document</title>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 40px; }
+            ${styles}
+            /* Ensure KaTeX elements are properly displayed */
+            .katex { font-size: 1em; }
+            .katex-display { margin: 1em 0; text-align: center; }
+          </style>
+        </head>
+        <body class="p-4">
+          <div class="editor-preview">${renderedContent}</div>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+      const filename = currentFile ? currentFile.replace('.md', '.html') : 'export.html';
+      saveAs(blob, filename);
+    };
+
+    // --- EVENT LISTENERS FOR NEW BUTTONS ---
+    printPdfBtn.addEventListener('click', printPreview);
+    exportDocxBtn.addEventListener('click', exportToDocx);
+
+    // Add preview highlight class and input focus behavior
+    document.addEventListener('click', (e) => {
+      const span = e.target.closest('.placeholder-target');
+      if (!span) return;
+    
+      const placeholderKey = span.getAttribute('data-placeholder');
+      const occurrenceIndex = parseInt(span.getAttribute('data-occurrence-index') || '0', 10);
+      
+      if (!placeholderKey) return;
+    
+      // Focus corresponding input
+      const input = document.querySelector(`input[data-placeholder="${placeholderKey}"]`);
+      if (input) {
+        input.focus();
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+        input.classList.add('ring', 'ring-yellow-300');
+        setTimeout(() => input.classList.remove('ring', 'ring-yellow-300'), 1000);
+      }
+    
+      // Highlight in both editor and preview
+      navigateToOccurrence(placeholderKey, occurrenceIndex);
+    });
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    // UPDATED MERMAID INITIALIZATION
+    mermaid.initialize({
+        startOnLoad: false, // We will trigger rendering manually
+        theme: 'default',
+        securityLevel: 'loose'
+    });
+
+    // Check DOCX library availability and update button accordingly
+    setTimeout(() => {
+        const docxBtn = document.getElementById('exportDocxBtn');
+        if (typeof htmlToDocx === 'undefined') {
+            docxBtn.title = 'Export as Word-compatible HTML (.doc) - DOCX library not loaded';
+            docxBtn.style.opacity = '0.8';
+            
+            // Add a small indicator
+            const indicator = document.createElement('span');
+            indicator.textContent = ' ⚠';
+            indicator.style.fontSize = '0.8em';
+            indicator.title = 'Will export as .doc instead of .docx';
+            docxBtn.appendChild(indicator);
+        } else {
+            docxBtn.title = 'Export as Microsoft Word Document (.docx)';
+        }
+    }, 1000); // Give time for libraries to load
+});
+
+
+  </script>
+</body>
+</html>
