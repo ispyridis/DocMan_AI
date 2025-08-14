@@ -1,15 +1,18 @@
 # DocMan AI
 
-DocMan AI is a universal AI-assisted case documentation assistant. It is designed to streamline your document creation and management process, especially for case completion. It leverages modern web technologies and AI to provide a rich and interactive user experience.
+Also available in Greek: [README.gr.md](./README.gr.md)
+
+
+DocMan AI is a universal AI-assisted case documentation tool. It is designed to streamline your document creation and management process, especially for case completion. It leverages modern web technologies and AI to provide a rich and interactive user experience.
 
 ## Case Completion Workflow
 
 DocMan AI, in combination with a case description and a JSON file (generated externally by multimodal LLMs like Gemini or ChatGPT), can significantly assist in completing cases. Here's how:
 
-1.  **Data Preparation**: Provide a folder with all gathered documents (scanned, screenshots, etc.) to a multimodal LLM (e.g., Gemini, ChatGPT). Instruct the LLM to read these files and extract relevant case information, structuring it into a flat JSON file with `key` and `description` columns.
+1.  **Data Preparation**: Provide a folder with all gathered documents (scanned documents, screenshots, etc.) to a multimodal LLM (e.g., Gemini, ChatGPT). Instruct the LLM to read these files and extract relevant case information, structuring it into a flat JSON file with `key` and `description` fields.
 2.  **Plan and Task List**: Create a comprehensive plan and task list for completing a case.
-3.  **Design Document Templates**: Design needed document templates with dynamic placeholders.
-4.  **Fill Multiple Documents**: Fill up multiple documents at once using the externally generated JSON data.
+3.  **Design Document Templates**: Design the necessary document templates with dynamic placeholders.
+4.  **Fill Multiple Documents**: Fill multiple documents at once using the externally generated JSON data.
 5.  **AI-Assisted Suggestions**: Get AI-assisted suggestions on what to complete in the placeholders, retrieving data from the case description and the JSON file.
 
 ## Features
@@ -25,7 +28,7 @@ DocMan AI, in combination with a case description and a JSON file (generated ext
 - **Theme Toggle**: Switch between light and dark themes for a personalized viewing experience.
 - **File Management**: Drag and drop markdown files into the application for easy editing and management.
 - **JSON Data Integration**: Upload and view JSON data to be used in conjunction with document content.
-- **Responsive Layout**: Utilizes `split.js` for resizable panels and Tailwind CSS for a modern, responsive UI.
+- **Responsive Layout**: Utilizes Split.js for resizable panels and Tailwind CSS for a modern, responsive UI.
 
 ## Technologies Used
 
@@ -35,7 +38,7 @@ DocMan AI, in combination with a case description and a JSON file (generated ext
 
 ## Getting Started
 
-To use DocMan AI, simply open the `DocMan_AI_v001.html` file in your web browser. Ensure you have an active internet connection for CDN-hosted libraries and to access the Gemini API.
+To use DocMan AI, simply open the [DocMan_AI_v001.html](./DocMan_AI_v001.html) file in your web browser. Ensure you have an active internet connection for CDN-hosted libraries and to access the Gemini API.
 
 ### Gemini API Key
 
@@ -45,7 +48,7 @@ To enable AI functionalities, you will need to obtain a Gemini API Key and enter
 
 - **Local Image Handling**: Does not accept local images via drag and drop; only linked images are supported.
 - **Local Image Serving**: Works effectively with `miniserve` for serving local images.
-- **DOCX Export**: Linked images are translated through Pandoc to create independent DOCX files with the images embeded.
+- **DOCX Export**: Linked images are translated through Pandoc to create independent DOCX files with the images embedded.
 - **Diagram and LaTeX Export**: Cannot create Mermaid diagrams or LaTeX equations directly in DOCX files. These features are best viewed in PDF exports.
 
 ## Usage
